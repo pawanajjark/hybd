@@ -28,13 +28,13 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
   k.loadSound("die", "/audio/die.wav");
 
   // Set gravity
-  k.setGravity(1600);
+  k.setGravity(800);
 
   // Game constants
   const PIPE_OPEN = 150;
   const PIPE_MIN = 80;
-  const JUMP_FORCE = 600;
-  const SPEED = 320;
+  const JUMP_FORCE = 200;
+  const SPEED = 220;
   const CEILING = -100;
 
   // Game scene
