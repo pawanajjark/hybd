@@ -20,6 +20,10 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
   k.loadSprite("pipe", "/sprites/pipe-green.png");
   k.loadSprite("base", "/sprites/base.png");
   k.loadSprite("gameover", "/sprites/gameover.png");
+  // Load power-up sprites
+  k.loadSprite("coin", "/sprites/Monad Logo - Default - Logo Mark.png");
+  k.loadSprite("mushroom", "/sprites/Mushroom from KAPLAY Wiki.png");
+  k.loadSprite("ghostiny", "/sprites/Ghostiny from KAPLAY Crew Wiki.png");
 
   // Load sounds
   k.loadSound("jump", "/audio/wing.wav");
@@ -39,6 +43,14 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
 
   // Game scene
   k.scene("game", () => {
+    // Game state variables
+    let score = 0;
+    let coins = 0;
+    let doublePointsActive = false;
+    let doublePointsTimer = 0;
+    let ghostModeActive = false;
+    let ghostModeTimer = 0;
+
     // Add scrolling background
     k.add([
       k.sprite("background"),
@@ -77,6 +89,7 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
       k.area(),
       k.body(),
       k.scale(2),
+      k.opacity(1),
       "bird",
     ]);
 
@@ -93,7 +106,7 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
     // Check for death
     bird.onUpdate(() => {
       if (bird.pos.y >= k.height() - 100 || bird.pos.y <= CEILING) {
-        k.go("lose", score);
+        k.go("lose", { score, coins });
         k.play("hit");
       }
     });
@@ -109,10 +122,193 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
       k.play("jump");
     });
 
+    // UI Elements
+    const scoreLabel = k.add([
+      k.text(score.toString(), { size: 48, font: "monospace" }),
+      k.anchor("center"),
+      k.pos(k.width() / 2, 80),
+      k.fixed(),
+      k.z(100),
+      k.color(255, 255, 255),
+      k.outline(3, k.BLACK),
+    ]);
+
+    const coinLabel = k.add([
+      k.text(`Coins: ${coins}`, { size: 24, font: "monospace" }),
+      k.anchor("topleft"),
+      k.pos(20, 20),
+      k.fixed(),
+      k.z(100),
+      k.color(255, 215, 0),
+      k.outline(2, k.BLACK),
+    ]);
+
+    const doublePointsLabel = k.add([
+      k.text("", { size: 20, font: "monospace" }),
+      k.anchor("topleft"),
+      k.pos(20, 50),
+      k.fixed(),
+      k.z(100),
+      k.color(255, 100, 255),
+      k.outline(2, k.BLACK),
+    ]);
+
+    const ghostModeLabel = k.add([
+      k.text("", { size: 20, font: "monospace" }),
+      k.anchor("topleft"),
+      k.pos(20, 80),
+      k.fixed(),
+      k.z(100),
+      k.color(150, 255, 150),
+      k.outline(2, k.BLACK),
+    ]);
+
+    // Power-up timers update
+    k.onUpdate(() => {
+      // Double points timer
+      if (doublePointsActive) {
+        doublePointsTimer -= k.dt();
+        doublePointsLabel.text = `Double Points: ${Math.ceil(doublePointsTimer)}s`;
+        if (doublePointsTimer <= 0) {
+          doublePointsActive = false;
+          doublePointsLabel.text = "";
+        }
+      }
+
+      // Ghost mode timer
+      if (ghostModeActive) {
+        ghostModeTimer -= k.dt();
+        ghostModeLabel.text = `Ghost Mode: ${Math.ceil(ghostModeTimer)}s`;
+        // Make bird semi-transparent during ghost mode
+        bird.opacity = 0.6;
+        if (ghostModeTimer <= 0) {
+          ghostModeActive = false;
+          ghostModeLabel.text = "";
+          bird.opacity = 1;
+        }
+      }
+    });
+
+    // Track current pipe gap for safe spawning
+    let currentPipeGap = { top: 0, bottom: 0 };
+
+    // Coin spawning function - spawn in safe areas only
+    function spawnCoin() {
+      // Only spawn if we have a safe gap defined
+      if (currentPipeGap.top > 0 && currentPipeGap.bottom > 0) {
+        const safeZoneStart = currentPipeGap.top + 30; // 30px margin from top pipe
+        const safeZoneEnd = currentPipeGap.bottom - 30; // 30px margin from bottom pipe
+        
+        if (safeZoneEnd > safeZoneStart) {
+          const y = k.rand(safeZoneStart, safeZoneEnd);
+          k.add([
+            k.sprite("coin"),
+            k.pos(k.width() + 100, y),
+            k.area(),
+            k.move(k.LEFT, SPEED),
+            k.offscreen({ destroy: true }),
+            k.scale(0.15),
+            k.anchor("center"),
+            "coin",
+          ]);
+        }
+      } else {
+        // Fallback: spawn in middle area if no pipe gap data
+        const y = k.rand(150, k.height() - 250);
+        k.add([
+          k.sprite("coin"),
+          k.pos(k.width() + 100, y),
+          k.area(),
+          k.move(k.LEFT, SPEED),
+          k.offscreen({ destroy: true }),
+          k.scale(0.15),
+          k.anchor("center"),
+          "coin",
+        ]);
+      }
+    }
+
+    // Power-up spawning functions - spawn in safe areas only
+    function spawnMushroom() {
+      // Only spawn if we have a safe gap defined
+      if (currentPipeGap.top > 0 && currentPipeGap.bottom > 0) {
+        const safeZoneStart = currentPipeGap.top + 40; // 40px margin from top pipe
+        const safeZoneEnd = currentPipeGap.bottom - 40; // 40px margin from bottom pipe
+        
+        if (safeZoneEnd > safeZoneStart) {
+          const y = k.rand(safeZoneStart, safeZoneEnd);
+          k.add([
+            k.sprite("mushroom"),
+            k.pos(k.width() + 150, y),
+            k.area(),
+            k.move(k.LEFT, SPEED),
+            k.offscreen({ destroy: true }),
+            k.scale(0.4),
+            k.anchor("center"),
+            "mushroom",
+          ]);
+        }
+      } else {
+        // Fallback: spawn in middle area if no pipe gap data
+        const y = k.rand(150, k.height() - 250);
+        k.add([
+          k.sprite("mushroom"),
+          k.pos(k.width() + 150, y),
+          k.area(),
+          k.move(k.LEFT, SPEED),
+          k.offscreen({ destroy: true }),
+          k.scale(0.4),
+          k.anchor("center"),
+          "mushroom",
+        ]);
+      }
+    }
+
+    function spawnGhostiny() {
+      // Only spawn if we have a safe gap defined
+      if (currentPipeGap.top > 0 && currentPipeGap.bottom > 0) {
+        const safeZoneStart = currentPipeGap.top + 40; // 40px margin from top pipe
+        const safeZoneEnd = currentPipeGap.bottom - 40; // 40px margin from bottom pipe
+        
+        if (safeZoneEnd > safeZoneStart) {
+          const y = k.rand(safeZoneStart, safeZoneEnd);
+          k.add([
+            k.sprite("ghostiny"),
+            k.pos(k.width() + 150, y),
+            k.area(),
+            k.move(k.LEFT, SPEED),
+            k.offscreen({ destroy: true }),
+            k.scale(0.4),
+            k.anchor("center"),
+            "ghostiny",
+          ]);
+        }
+      } else {
+        // Fallback: spawn in middle area if no pipe gap data
+        const y = k.rand(150, k.height() - 250);
+        k.add([
+          k.sprite("ghostiny"),
+          k.pos(k.width() + 150, y),
+          k.area(),
+          k.move(k.LEFT, SPEED),
+          k.offscreen({ destroy: true }),
+          k.scale(0.4),
+          k.anchor("center"),
+          "ghostiny",
+        ]);
+      }
+    }
+
     // Pipe spawning function
     function spawnPipe() {
       const h1 = k.rand(PIPE_MIN, k.height() - PIPE_MIN - PIPE_OPEN - 100);
       const h2 = k.height() - h1 - PIPE_OPEN - 100;
+
+      // Update current pipe gap for safe spawning
+      currentPipeGap = {
+        top: h1,
+        bottom: h1 + PIPE_OPEN
+      };
 
       // Top pipe
       k.add([
@@ -140,23 +336,40 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
       ]);
     }
 
-    // Pipe collision
-    bird.onCollide("pipe", () => {
-      k.go("lose", score);
-      k.play("hit");
+    // Collision handlers
+    
+    // Coin collision
+    bird.onCollide("coin", (coin) => {
+      coin.destroy();
+      const coinValue = doublePointsActive ? 2 : 1;
+      coins += coinValue;
+      coinLabel.text = `Coins: ${coins}`;
+      k.play("score");
     });
 
-    // Score system
-    let score = 0;
-    const scoreLabel = k.add([
-      k.text(score.toString(), { size: 48, font: "monospace" }),
-      k.anchor("center"),
-      k.pos(k.width() / 2, 80),
-      k.fixed(),
-      k.z(100),
-      k.color(255, 255, 255),
-      k.outline(3, k.BLACK),
-    ]);
+    // Mushroom collision
+    bird.onCollide("mushroom", (mushroom) => {
+      mushroom.destroy();
+      doublePointsActive = true;
+      doublePointsTimer = 5;
+      k.play("score");
+    });
+
+    // Ghostiny collision
+    bird.onCollide("ghostiny", (ghostiny) => {
+      ghostiny.destroy();
+      ghostModeActive = true;
+      ghostModeTimer = 5;
+      k.play("score");
+    });
+
+    // Pipe collision (only if not in ghost mode)
+    bird.onCollide("pipe", () => {
+      if (!ghostModeActive) {
+        k.go("lose", { score, coins });
+        k.play("hit");
+      }
+    });
 
     // Check for scoring
     k.onUpdate("pipe", (pipe) => {
@@ -172,14 +385,38 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
       k.play("score");
     }
 
-    // Spawn pipes every 1.5 seconds
+    // Spawning timers
     k.loop(1.5, () => {
       spawnPipe();
+    });
+
+    // Spawn coins more frequently - every 1.5 seconds
+    k.loop(1.5, () => {
+      spawnCoin();
+    });
+
+    // Spawn additional coins randomly for more variety
+    k.loop(2.5, () => {
+      if (k.rand() < 0.6) {
+        spawnCoin();
+      }
+    });
+
+    k.loop(8, () => {
+      if (k.rand() < 0.3) {
+        spawnMushroom();
+      }
+    });
+
+    k.loop(10, () => {
+      if (k.rand() < 0.25) {
+        spawnGhostiny();
+      }
     });
   });
 
   // Lose scene
-  k.scene("lose", (finalScore: number) => {
+  k.scene("lose", (gameData: { score: number; coins: number }) => {
     k.add([
       k.sprite("background"),
       k.pos(0, 0),
@@ -201,7 +438,7 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
     ]);
 
     k.add([
-      k.text(`Score: ${finalScore}`, { size: 32, font: "monospace" }),
+      k.text(`Score: ${gameData.score}`, { size: 32, font: "monospace" }),
       k.pos(k.width() / 2, k.height() / 2),
       k.anchor("center"),
       k.color(255, 255, 255),
@@ -209,8 +446,16 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
     ]);
 
     k.add([
+      k.text(`Coins: ${gameData.coins}`, { size: 24, font: "monospace" }),
+      k.pos(k.width() / 2, k.height() / 2 + 40),
+      k.anchor("center"),
+      k.color(255, 215, 0),
+      k.outline(2, k.BLACK),
+    ]);
+
+    k.add([
       k.text("Press SPACE or Click to Play Again", { size: 20, font: "monospace" }),
-      k.pos(k.width() / 2, k.height() / 2 + 60),
+      k.pos(k.width() / 2, k.height() / 2 + 80),
       k.anchor("center"),
       k.color(255, 255, 255),
       k.outline(1, k.BLACK),
