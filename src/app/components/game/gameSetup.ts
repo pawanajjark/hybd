@@ -10,6 +10,8 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
     debug: false,
     stretch: true,
     letterbox: true,
+    crisp: true,
+    pixelDensity: 1,
   });
 
   // Load sprites
@@ -37,8 +39,8 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
   // Game constants
   const PIPE_OPEN = 150;
   const PIPE_MIN = 80;
-  const JUMP_FORCE = 200;
-  const SPEED = 220;
+  const JUMP_FORCE = 220;
+  const SPEED = 240;
   const CEILING = -100;
 
   // Game scene
@@ -98,7 +100,7 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
     const birdSprites = ["bird", "bird-up", "bird-down"];
     
     k.onUpdate(() => {
-      birdFrame += k.dt() * 8;
+      birdFrame += k.dt() * 10;
       if (birdFrame >= birdSprites.length) birdFrame = 0;
       bird.use(k.sprite(birdSprites[Math.floor(birdFrame)]));
     });
@@ -124,13 +126,13 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
 
     // UI Elements
     const scoreLabel = k.add([
-      k.text(score.toString(), { size: 48, font: "monospace" }),
-      k.anchor("center"),
-      k.pos(k.width() / 2, 80),
+      k.text(`Score: ${score}`, { size: 24, font: "monospace" }),
+      k.anchor("topright"),
+      k.pos(k.width() - 20, 20),
       k.fixed(),
       k.z(100),
       k.color(255, 255, 255),
-      k.outline(3, k.BLACK),
+      k.outline(2, k.BLACK),
     ]);
 
     const coinLabel = k.add([
@@ -381,7 +383,7 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
 
     function addScore() {
       score++;
-      scoreLabel.text = score.toString();
+      scoreLabel.text = `Score: ${score}`;
       k.play("score");
     }
 
@@ -390,26 +392,19 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
       spawnPipe();
     });
 
-    // Spawn coins more frequently - every 1.5 seconds
-    k.loop(1.5, () => {
+    // Spawn coins - single loop to prevent overlapping
+    k.loop(2.2, () => {
       spawnCoin();
     });
 
-    // Spawn additional coins randomly for more variety
-    k.loop(2.5, () => {
-      if (k.rand() < 0.6) {
-        spawnCoin();
-      }
-    });
-
-    k.loop(8, () => {
-      if (k.rand() < 0.3) {
+    k.loop(5, () => {
+      if (k.rand() < 0.5) {
         spawnMushroom();
       }
     });
 
-    k.loop(10, () => {
-      if (k.rand() < 0.25) {
+    k.loop(6, () => {
+      if (k.rand() < 0.4) {
         spawnGhostiny();
       }
     });
@@ -525,4 +520,4 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
       k.quit();
     }
   };
-} 
+}
