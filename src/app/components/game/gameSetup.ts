@@ -41,9 +41,9 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
   const PIPE_MIN = 80;
   const JUMP_FORCE = 220;
   const BASE_SPEED = 240;
-  const SPEED_INCREASE_THRESHOLD = 2; // Increase speed after this many pipes
-  const SPEED_INCREASE_AMOUNT = 100;   // How much to increase speed by
-  const STRAIGHT_LINE_STAGE_START = 4; // Start straight line stage after this many pipes
+  const SPEED_INCREASE_THRESHOLD = 10; // Increase speed after this many pipes
+  const SPEED_INCREASE_AMOUNT = 50;   // How much to increase speed by
+  const STRAIGHT_LINE_STAGE_START = 20; // Start straight line stage after this many pipes
   const STRAIGHT_LINE_STAGE_DURATION = 5; // How many pipes in straight line stage
   const CEILING = -100;
 
@@ -61,7 +61,11 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
     let straightLineStageCounter = 0;
     let straightLineGapPosition = 0; // Store the gap position for straight line stage
     let pipeSpawnTimer = 0;
+    let itemSpawnTimer = 0; // Timer for coordinated item spawning
+    let gameStarted = false; // Track if game has started (first pipe spawned)
+    let lastItemSpawnTime = 0; // Track when last item was spawned
     const basePipeSpawnInterval = 1.5; // Base interval for pipe spawning
+    const itemSpawnInterval = 0.5; // Reduced interval between item spawns
 
     // Add scrolling background
     k.add([
@@ -247,12 +251,15 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
 
     // Coin spawning function - spawn in safe areas only
     function spawnCoin() {
+      // Only spawn if game has started (at least one pipe exists)
+      if (!gameStarted) return;
+      
       // Wait a bit to ensure pipe gap is set correctly
       k.wait(0.1, () => {
         // Only spawn if we have a safe gap defined
         if (currentPipeGap.top > 0 && currentPipeGap.bottom > 0) {
-          const safeZoneStart = currentPipeGap.top + 40; // 40px margin from top pipe
-          const safeZoneEnd = currentPipeGap.bottom - 40; // 40px margin from bottom pipe
+          const safeZoneStart = currentPipeGap.top + 50; // Increased margin from 40 to 50
+          const safeZoneEnd = currentPipeGap.bottom - 50; // Increased margin from 40 to 50
           
           if (safeZoneEnd > safeZoneStart) {
             const y = k.rand(safeZoneStart, safeZoneEnd);
@@ -266,30 +273,21 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
               "coin",
             ]);
           }
-        } else {
-          // Fallback: spawn in middle area if no pipe gap data
-          const y = k.rand(200, k.height() - 200);
-          k.add([
-            k.sprite("coin"),
-            k.pos(k.width() + 100, y),
-            k.area(),
-            k.offscreen({ destroy: true }),
-            k.scale(0.15),
-            k.anchor("center"),
-            "coin",
-          ]);
         }
       });
     }
 
     // Power-up spawning functions - spawn in safe areas only
     function spawnMushroom() {
+      // Only spawn if game has started (at least one pipe exists)
+      if (!gameStarted) return;
+      
       // Wait a bit to ensure pipe gap is set correctly
       k.wait(0.1, () => {
         // Only spawn if we have a safe gap defined
         if (currentPipeGap.top > 0 && currentPipeGap.bottom > 0) {
-          const safeZoneStart = currentPipeGap.top + 50; // 50px margin from top pipe
-          const safeZoneEnd = currentPipeGap.bottom - 50; // 50px margin from bottom pipe
+          const safeZoneStart = currentPipeGap.top + 60; // Increased margin from 50 to 60
+          const safeZoneEnd = currentPipeGap.bottom - 60; // Increased margin from 50 to 60
           
           if (safeZoneEnd > safeZoneStart) {
             const y = k.rand(safeZoneStart, safeZoneEnd);
@@ -303,29 +301,20 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
               "mushroom",
             ]);
           }
-        } else {
-          // Fallback: spawn in middle area if no pipe gap data
-          const y = k.rand(200, k.height() - 200);
-          k.add([
-            k.sprite("mushroom"),
-            k.pos(k.width() + 150, y),
-            k.area(),
-            k.offscreen({ destroy: true }),
-            k.scale(0.4),
-            k.anchor("center"),
-            "mushroom",
-          ]);
         }
       });
     }
 
     function spawnGhostiny() {
+      // Only spawn if game has started (at least one pipe exists)
+      if (!gameStarted) return;
+      
       // Wait a bit to ensure pipe gap is set correctly
       k.wait(0.1, () => {
         // Only spawn if we have a safe gap defined
         if (currentPipeGap.top > 0 && currentPipeGap.bottom > 0) {
-          const safeZoneStart = currentPipeGap.top + 50; // 50px margin from top pipe
-          const safeZoneEnd = currentPipeGap.bottom - 50; // 50px margin from bottom pipe
+          const safeZoneStart = currentPipeGap.top + 60; // Increased margin from 50 to 60
+          const safeZoneEnd = currentPipeGap.bottom - 60; // Increased margin from 50 to 60
           
           if (safeZoneEnd > safeZoneStart) {
             const y = k.rand(safeZoneStart, safeZoneEnd);
@@ -334,30 +323,43 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
               k.pos(k.width() + 150, y),
               k.area(),
               k.offscreen({ destroy: true }),
-              k.scale(0.7), // Increased size from 0.4 to 0.7
+              k.scale(0.7),
               k.anchor("center"),
               "ghostiny",
             ]);
           }
-        } else {
-          // Fallback: spawn in middle area if no pipe gap data
-          const y = k.rand(200, k.height() - 200);
-          k.add([
-            k.sprite("ghostiny"),
-            k.pos(k.width() + 150, y),
-            k.area(),
-            k.offscreen({ destroy: true }),
-            k.scale(0.7), // Increased size from 0.4 to 0.7
-            k.anchor("center"),
-            "ghostiny",
-          ]);
         }
       });
+    }
+
+    // Coordinated item spawning function - ensures only one item spawns at a time
+    function spawnRandomItem() {
+      if (!gameStarted) return;
+      
+      // 85% chance to spawn an item after each pipe
+      if (k.rand() < 0.85) {
+        const itemType = k.rand();
+        if (itemType < 0.7) {
+          spawnCoin(); // 70% chance for coins
+        } else if (itemType < 0.9) {
+          spawnMushroom(); // 20% chance for mushroom
+        } else {
+          spawnGhostiny(); // 10% chance for ghostiny
+        }
+      }
+      
+      lastItemSpawnTime = k.time();
     }
 
     // Pipe spawning function
     function spawnPipe() {
       let h1, h2;
+      
+      // Mark game as started when first pipe spawns
+      if (!gameStarted) {
+        gameStarted = true;
+        lastItemSpawnTime = k.time(); // Initialize item spawn timer
+      }
       
       // Check if we should start straight line stage
       if (score >= STRAIGHT_LINE_STAGE_START && score % 10 === 0 && !inStraightLineStage) {
@@ -387,7 +389,7 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
       // Update current pipe gap for safe spawning (fixed calculation)
       currentPipeGap = {
         top: h1,
-        bottom: h1 + PIPE_OPEN + 100 // Fixed: account for base height
+        bottom: h1 + PIPE_OPEN
       };
 
       // Top pipe
@@ -412,6 +414,11 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
         "pipe",
         { passed: false },
       ]);
+      
+      // Schedule item spawning after this pipe
+      k.wait(0.2, () => {
+        spawnRandomItem();
+      });
     }
 
     // Update all moving objects with current speed
@@ -485,23 +492,8 @@ export function initializeKaboom(canvas: HTMLCanvasElement) {
       }
     }
 
-    // Remove the old static spawning loops - pipes now spawn dynamically
-    // Spawn coins - single loop to prevent overlapping
-    k.loop(2.2, () => {
-      spawnCoin();
-    });
-
-    k.loop(5, () => {
-      if (k.rand() < 0.5) {
-        spawnMushroom();
-      }
-    });
-
-    k.loop(6, () => {
-      if (k.rand() < 0.4) {
-        spawnGhostiny();
-      }
-    });
+    // Remove old independent spawning loops and replace with coordinated spawning
+    // Items now spawn in coordination with pipes to prevent overlapping
   });
 
   // Lose scene
